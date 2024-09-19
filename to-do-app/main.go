@@ -2,9 +2,7 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 )
@@ -14,28 +12,24 @@ type Todo struct {
 	IsCompleted bool
 }
 
-type TodoList struct {
-	Todos []Todo
+var todos []Todo
+
+func addTodo(task string) {
+	todos = append(todos, Todo{Task: task, IsCompleted: false})
 }
 
-func (tl *TodoList) addTodo(task string) {
-	tl.Todos = append(tl.Todos, Todo{Task: task, IsCompleted: false})
-}
-
-func (tl *TodoList) completeTodo(index int) {
-	if index >= 0 && index < len(tl.Todos) {
-		tl.Todos[index].IsCompleted = true
+func completeTodo(index int) {
+	if index >= 0 && index < len(todos) {
+		todos[index].IsCompleted = true
 	}
 }
 
-func (tl *TodoList) removeTodo(index int) {
-	if index >= 0 && index < len(tl.Todos) {
-		tl.Todos = append(tl.Todos[:index], tl.Todos[index+1:]...)
+func displayTodos() {
+	if len(todos) == 0 {
+		fmt.Println("No todos yet!")
+		return
 	}
-}
-
-func (tl *TodoList) displayTodos() {
-	for i, todo := range tl.Todos {
+	for i, todo := range todos {
 		status := " "
 		if todo.IsCompleted {
 			status = "X"
@@ -44,89 +38,41 @@ func (tl *TodoList) displayTodos() {
 	}
 }
 
-func (tl *TodoList) saveToFile(filename string) error {
-	data, err := json.Marshal(tl)
-	if err != nil {
-		return err
-	}
-	return ioutil.WriteFile(filename, data, 0644)
-}
-
-func loadFromFile(filename string) (*TodoList, error) {
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return &TodoList{}, nil
-	}
-	var tl TodoList
-	err = json.Unmarshal(data, &tl)
-	if err != nil {
-		return nil, err
-	}
-	return &tl, nil
-}
-
 func main() {
-	filename := "todos.json"
-	todoList, err := loadFromFile(filename)
-	if err != nil {
-		fmt.Println("Error loading todo list:", err)
-		return
-	}
-
 	scanner := bufio.NewScanner(os.Stdin)
 
 	for {
 		fmt.Println("\n--- Todo List ---")
-		todoList.displayTodos()
-		fmt.Println("\nCommands: add, complete, remove, quit")
+		displayTodos()
+		fmt.Println("\nCommands: add <task>, complete <number>, quit")
 		fmt.Print("Enter a command: ")
 
 		scanner.Scan()
 		input := scanner.Text()
-		command := strings.Fields(input)
+		parts := strings.SplitN(input, " ", 2)
 
-		if len(command) == 0 {
-			continue
-		}
+		command := parts[0]
 
-		switch command[0] {
+		switch command {
 		case "add":
-			if len(command) < 2 {
+			if len(parts) < 2 {
 				fmt.Println("Please provide a task to add.")
 				continue
 			}
-			task := strings.Join(command[1:], " ")
-			todoList.addTodo(task)
+			addTodo(parts[1])
 		case "complete":
-			if len(command) != 2 {
+			if len(parts) < 2 {
 				fmt.Println("Please provide the number of the task to complete.")
 				continue
 			}
 			var index int
-			fmt.Sscanf(command[1], "%d", &index)
-			todoList.completeTodo(index - 1)
-		case "remove":
-			if len(command) != 2 {
-				fmt.Println("Please provide the number of the task to remove.")
-				continue
-			}
-			var index int
-			fmt.Sscanf(command[1], "%d", &index)
-			todoList.removeTodo(index - 1)
+			fmt.Sscanf(parts[1], "%d", &index)
+			completeTodo(index - 1)
 		case "quit":
-			err := todoList.saveToFile(filename)
-			if err != nil {
-				fmt.Println("Error saving todo list:", err)
-			}
 			fmt.Println("Goodbye!")
 			return
 		default:
 			fmt.Println("Unknown command. Please try again.")
-		}
-
-		err := todoList.saveToFile(filename)
-		if err != nil {
-			fmt.Println("Error saving todo list:", err)
 		}
 	}
 }
